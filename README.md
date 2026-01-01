@@ -1,32 +1,35 @@
 # SerdeJSONPy
 
-![Python](https://img.shields.io/badge/Python-3.11-blue?logo=python\&logoColor=white) ![Rust](https://img.shields.io/badge/Rust-1.74-orange?logo=rust\&logoColor=white)
+![SerdeJSONPy Logo](icon.png)
+![Python](https://img.shields.io/badge/Python-3.13-blue?logo=python\&logoColor=white)
+![Rust](https://img.shields.io/badge/Rust-1.94-orange?logo=rust\&logoColor=white)
 
-A **high-performance**, **feature-packed** Rust library exposed to Python using PyO3 for **JSON manipulation**. SerdeJSONPy provides **full control over JSON objects**, from parsing to advanced operations like flattening, merging, and deep extraction.
+A **high-performance**, **feature-packed** Rust library exposed to Python using **PyO3** for **JSON manipulation**.
+SerdeJSONPy gives you **full control over JSON objects**, from simple parsing to advanced structural operations.
 
 ---
 
 ## ✨ Features
 
 * Parse JSON strings/bytes to Python objects
-* Serialize Python objects to JSON string/bytes (compact & pretty)
-* Getter & setter for keys in nested JSON
-* Path & JSON Pointer access (RFC 6901)
-* Type checking (`is_null`, `is_array`, `is_object`, etc.)
-* Value extraction (`as_i64`, `as_str`, `as_bool`, etc.)
-* Flatten nested JSON objects
-* Recursive retrieval of all keys & values
+* Serialize Python objects to JSON (compact & pretty)
+* Getter & setter for deeply nested keys
+* Path access & JSON Pointer (RFC 6901)
+* Type checks (`is_null`, `is_array`, `is_object`, etc.)
+* Safe value extraction (`as_i64`, `as_str`, `as_bool`, etc.)
+* Flatten deeply nested JSON
+* Recursive key & value retrieval
 * Count total values in a structure
 * Find all paths to a specific value
-* Remove nulls recursively
+* Remove null values recursively
 * Sort keys alphabetically
-* Determine depth of nested structure
+* Compute nesting depth
 * Validate JSON strings
-* Minify JSON strings
-* Compare JSON objects for equality
+* Minify JSON
+* Deep merge JSON objects
+* Structural equality comparison
 * Compute size in bytes
-* Merge JSON objects deeply
-* Optional PyJson wrapper for convenience
+* Optional `PyJson` wrapper
 
 ---
 
@@ -36,7 +39,7 @@ A **high-performance**, **feature-packed** Rust library exposed to Python using 
 pip install serdejsonpy
 ```
 
-*(Requires Rust 1.74+ and PyO3; optionally use `maturin` to build from source)*
+Requires **Rust 1.74+** and **PyO3**. For local builds, use `maturin`.
 
 ---
 
@@ -88,14 +91,10 @@ show("is_number(age)", sj.is_number(sample_json["age"]))
 show("is_string(name)", sj.is_string(sample_json["name"]))
 show("is_array(skills)", sj.is_array(sample_json["skills"]))
 show("is_object(details)", sj.is_object(sample_json["details"]))
-show("is_i64(age)", sj.is_i64(sample_json["age"]))
-show("is_u64(age)", sj.is_u64(sample_json["age"]))
-show("is_f64(height)", sj.is_f64(sample_json["details"]["height"]))
 
 section("VALUE EXTRACTION")
 show("as_bool(active)", sj.as_bool(sample_json["active"]))
 show("as_i64(age)", sj.as_i64(sample_json["age"]))
-show("as_u64(age)", sj.as_u64(sample_json["age"]))
 show("as_f64(height)", sj.as_f64(sample_json["details"]["height"]))
 show("as_str(name)", sj.as_str(sample_json["name"]))
 
@@ -127,10 +126,10 @@ show("minify", sj.minify(json_str))
 show("equals(self, self)", sj.equals(sample_json, sample_json))
 show("size", sj.size(sample_json))
 
-print("\nDONE. ALL METHODS EXECUTED SUCCESSFULLY.")
+print("DONE. ALL METHODS EXECUTED SUCCESSFULLY.")
 ```
 
-*a coloruful example with `rich` panels is in `examples/example.py`.
+A colorful example using `rich` panels is available in `examples/example.py`.
 
 ---
 
@@ -143,38 +142,28 @@ pip install maturin
 
 ---
 
-## 💡 Advanced Features
-
-* Recursive key/value collection
-* Find all paths to a value
-* Remove nulls & sort keys
-* Check depth and size
-* JSON Pointer access
-* JSON validation & minification
-* Structural equality comparison
-
----
-
 ## 📦 PyJson Wrapper (Optional)
 
 ```python
-j = serdejsonpy.PyJson(data)
-print("Original:", j.to_py())
+from serdejsonpy import PyJson
+
+j = PyJson({"name": "Alice", "age": 30})
+print(j.to_py())
 j.set("age", 25)
-print("Updated:", j.to_py())
-print("Bytes:", j.to_bytes())
+print(j.to_py())
+print(j.to_bytes())
 ```
 
-Provides a Pythonic interface for fast JSON manipulation with all advanced Rust-backed features.
+Provides a clean, Pythonic wrapper over the Rust-backed engine.
 
 ---
 
 ## 🌈 Why SerdeJSONPy?
 
-* **Blazing fast:** Rust-powered parsing and serialization.
-* **Full-featured:** Covers everything from basic get/set to deep merges.
-* **Python-friendly:** Transparent conversion between Python objects and Rust `Value`.
-* **Production-ready:** Type-safe, validated, and thoroughly tested.
+* **Blazing fast** — Rust-powered core
+* **Full control** — from basic get/set to deep structural ops
+* **Python-native** — seamless conversion to/from Python objects
+* **Production-ready** — safe, validated, and battle-tested
 
 ---
 
@@ -186,9 +175,9 @@ MIT License
 
 ## 🔗 Links
 
-* [GitHub Repository](https://github.com/pro-grammer-SD/serdejsonpy)
-* [Rust Serde Documentation](https://docs.rs/serde/)
+* GitHub: [https://github.com/pro-grammer-SD/serdejsonpy](https://github.com/pro-grammer-SD/serdejsonpy)
+* Serde Docs: [https://docs.rs/serde/](https://docs.rs/serde/)
 
 ---
 
-Made with 💜 by Soumalya
+Made with 💜 by **Soumalya**
