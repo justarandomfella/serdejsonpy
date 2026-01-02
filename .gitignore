@@ -1,1 +1,13 @@
-target/
+/target/
+**/target/
+
+Cargo.lock
+*.lock
+
+**/*.rs.bk
+
+.idea/
+.vscode/
+*.swp
+.DS_Store
+Thumbs.db
