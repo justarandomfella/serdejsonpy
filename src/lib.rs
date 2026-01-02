@@ -1,549 +1,381 @@
 use pyo3::prelude::*;
-use pyo3::types::{PyAny, PyBytes, PyDict, PyList};
+use pyo3::types::{PyBytes, PyDict, PyList};
+use pyo3::exceptions::PyValueError;
 use pythonize::{depythonize, pythonize};
-use serde_json::{Map, Value};
+use serde_json::Value;
 
 #[pyclass]
-struct SerdeJSON;
+pub struct SerdeJSON;
 
 #[pymethods]
 impl SerdeJSON {
     #[new]
-    fn new() -> Self {
-        SerdeJSON
-    }
+    #[inline(always)]
+    fn new() -> Self { SerdeJSON }
 
-    // ==================== Getter / Setter ====================
-
-    /// Get value at a key from a JSON object
-    fn get(&self, py: Python, obj: &Bound<'_, PyAny>, key: &str) -> PyResult<Py<PyAny>> {
-        let val: Value = depythonize(obj)
-            .map_err(|e| pyo3::exceptions::PyValueError::new_err(e.to_string()))?;
-        if let Value::Object(map) = val {
-            let result = map.get(key).cloned().unwrap_or(Value::Null);
-            pythonize(py, &result)
-                .map(|bound| bound.unbind())
-                .map_err(|e| pyo3::exceptions::PyValueError::new_err(e.to_string()))
-        } else {
-            Ok(py.None())
+    #[inline(always)]
+    fn get<'py>(&self, py: Python<'py>, obj: &Bound<'py, PyAny>, key: &str) -> PyResult<Bound<'py, PyAny>> {
+        match depythonize::<Value>(obj).map_err(|e| PyValueError::new_err(e.to_string()))? {
+            Value::Object(map) => pythonize(py, map.get(key).unwrap_or(&Value::Null))
+                .map_err(|e| PyValueError::new_err(e.to_string())),
+            _ => Ok(py.None().into_bound(py))
         }
     }
 
-    /// Set value at a key in a JSON object
-    fn set(&self, obj: &Bound<'_, PyAny>, key: &str, value: &Bound<'_, PyAny>) -> PyResult<Py<PyAny>> {
-        let mut val: Value = depythonize(obj)
-            .map_err(|e| pyo3::exceptions::PyValueError::new_err(e.to_string()))?;
-        let new_value: Value = depythonize(value)
-            .map_err(|e| pyo3::exceptions::PyValueError::new_err(e.to_string()))?;
-        if let Value::Object(map) = &mut val {
-            map.insert(key.to_string(), new_value);
-            pythonize(obj.py(), &val)
-                .map(|bound| bound.unbind())
-                .map_err(|e| pyo3::exceptions::PyValueError::new_err(e.to_string()))
-        } else {
-            Err(pyo3::exceptions::PyTypeError::new_err("Target is not a JSON object"))
+    #[inline(always)]
+    fn set<'py>(&self, py: Python<'py>, obj: &Bound<'py, PyAny>, key: &Bound<'py, PyAny>, value: &Bound<'py, PyAny>) -> PyResult<Bound<'py, PyAny>> {
+        let mut val = depythonize::<Value>(obj).map_err(|e| PyValueError::new_err(e.to_string()))?;
+        let new_value = depythonize::<Value>(value).map_err(|e| PyValueError::new_err(e.to_string()))?;
+        match &mut val {
+            Value::Object(map) => { 
+                map.insert(key.extract::<String>()?, new_value); 
+                pythonize(py, &val).map_err(|e| PyValueError::new_err(e.to_string()))
+            },
+            _ => Err(pyo3::exceptions::PyTypeError::new_err("Target is not a JSON object"))
         }
     }
-    
-    /// Convert Python object to compact JSON string
-    fn to_json(&self, obj: &Bound<'_, PyAny>) -> PyResult<String> {
-        let val: Value = depythonize(obj)
-            .map_err(|e| pyo3::exceptions::PyValueError::new_err(format!("Failed to serialize: {}", e)))?;
-        serde_json::to_string(&val)
-            .map_err(|e| pyo3::exceptions::PyValueError::new_err(format!("JSON error: {}", e)))
+
+    #[inline(always)]
+    fn to_json(&self, obj: &Bound<PyAny>) -> PyResult<String> { 
+        let val = depythonize::<Value>(obj).map_err(|e| PyValueError::new_err(e.to_string()))?;
+        serde_json::to_string(&val).map_err(|e| PyValueError::new_err(e.to_string()))
     }
 
-    /// Convert Python object to pretty-printed JSON string
-    fn to_json_pretty(&self, obj: &Bound<'_, PyAny>) -> PyResult<String> {
-        let val: Value = depythonize(obj)
-            .map_err(|e| pyo3::exceptions::PyValueError::new_err(format!("Failed to serialize: {}", e)))?;
-        serde_json::to_string_pretty(&val)
-            .map_err(|e| pyo3::exceptions::PyValueError::new_err(format!("JSON error: {}", e)))
+    #[inline(always)]
+    fn to_json_pretty(&self, obj: &Bound<PyAny>) -> PyResult<String> { 
+        let val = depythonize::<Value>(obj).map_err(|e| PyValueError::new_err(e.to_string()))?;
+        serde_json::to_string_pretty(&val).map_err(|e| PyValueError::new_err(e.to_string()))
     }
 
-    /// Convert Python object to compact JSON bytes
-    fn to_bytes(&self, py: Python, obj: &Bound<'_, PyAny>) -> PyResult<Py<PyBytes>> {
-        let val: Value = depythonize(obj)
-            .map_err(|e| pyo3::exceptions::PyValueError::new_err(format!("Failed to serialize: {}", e)))?;
-        let bytes = serde_json::to_vec(&val)
-            .map_err(|e| pyo3::exceptions::PyValueError::new_err(format!("JSON error: {}", e)))?;
-        Ok(PyBytes::new_bound(py, &bytes).unbind())
+    #[inline(always)]
+    fn to_bytes<'py>(&self, py: Python<'py>, obj: &Bound<'py, PyAny>) -> PyResult<Bound<'py, PyBytes>> {
+        let val = depythonize::<Value>(obj).map_err(|e| PyValueError::new_err(e.to_string()))?;
+        let bytes = serde_json::to_vec(&val).map_err(|e| PyValueError::new_err(e.to_string()))?;
+        Ok(PyBytes::new(py, &bytes))
     }
 
-    /// Convert Python object to pretty-printed JSON bytes
-    fn to_bytes_pretty(&self, py: Python, obj: &Bound<'_, PyAny>) -> PyResult<Py<PyBytes>> {
-        let val: Value = depythonize(obj)
-            .map_err(|e| pyo3::exceptions::PyValueError::new_err(format!("Failed to serialize: {}", e)))?;
-        let bytes = serde_json::to_vec_pretty(&val)
-            .map_err(|e| pyo3::exceptions::PyValueError::new_err(format!("JSON error: {}", e)))?;
-        Ok(PyBytes::new_bound(py, &bytes).unbind())
+    #[inline(always)]
+    fn to_bytes_pretty<'py>(&self, py: Python<'py>, obj: &Bound<'py, PyAny>) -> PyResult<Bound<'py, PyBytes>> {
+        let val = depythonize::<Value>(obj).map_err(|e| PyValueError::new_err(e.to_string()))?;
+        let bytes = serde_json::to_vec_pretty(&val).map_err(|e| PyValueError::new_err(e.to_string()))?;
+        Ok(PyBytes::new(py, &bytes))
     }
 
-    // ==================== Deserialization Methods ====================
-    
-    /// Parse JSON string to Python object
-    fn from_json(&self, py: Python, json_str: &str) -> PyResult<Py<PyAny>> {
-        let val: Value = serde_json::from_str(json_str)
-            .map_err(|e| pyo3::exceptions::PyValueError::new_err(format!("Invalid JSON: {}", e)))?;
-        pythonize(py, &val)
-            .map(|bound| bound.unbind())
-            .map_err(|e| pyo3::exceptions::PyValueError::new_err(format!("Pythonize error: {}", e)))
+    #[inline(always)]
+    fn from_json<'py>(&self, py: Python<'py>, json_str: &str) -> PyResult<Bound<'py, PyAny>> {
+        let val = serde_json::from_str::<Value>(json_str).map_err(|e| PyValueError::new_err(e.to_string()))?;
+        pythonize(py, &val).map_err(|e| PyValueError::new_err(e.to_string()))
     }
 
-    /// Parse JSON bytes to Python object
-    fn from_bytes(&self, py: Python, b: &Bound<'_, PyBytes>) -> PyResult<Py<PyAny>> {
-        let val: Value = serde_json::from_slice(b.as_bytes())
-            .map_err(|e| pyo3::exceptions::PyValueError::new_err(format!("Invalid JSON bytes: {}", e)))?;
-        pythonize(py, &val)
-            .map(|bound| bound.unbind())
-            .map_err(|e| pyo3::exceptions::PyValueError::new_err(format!("Pythonize error: {}", e)))
+    #[inline(always)]
+    fn from_bytes<'py>(&self, py: Python<'py>, b: &Bound<'py, PyBytes>) -> PyResult<Bound<'py, PyAny>> {
+        let val: Value = serde_json::from_slice(b.as_bytes()).map_err(|e| PyValueError::new_err(e.to_string()))?;
+        pythonize(py, &val).map_err(|e| PyValueError::new_err(e.to_string()))
     }
 
-    // ==================== Value Type Checking ====================
-    
-    /// Check if JSON value is null
-    fn is_null(&self, obj: &Bound<'_, PyAny>) -> PyResult<bool> {
-        let val: Value = depythonize(obj)
-            .map_err(|e| pyo3::exceptions::PyValueError::new_err(e.to_string()))?;
-        Ok(val.is_null())
+    #[inline(always)]
+    fn is_null(&self, obj: &Bound<PyAny>) -> PyResult<bool> { 
+        Ok(depythonize::<Value>(obj).map_err(|e| PyValueError::new_err(e.to_string()))?.is_null()) 
     }
 
-    /// Check if JSON value is a boolean
-    fn is_boolean(&self, obj: &Bound<'_, PyAny>) -> PyResult<bool> {
-        let val: Value = depythonize(obj)
-            .map_err(|e| pyo3::exceptions::PyValueError::new_err(e.to_string()))?;
-        Ok(val.is_boolean())
+    #[inline(always)]
+    fn is_boolean(&self, obj: &Bound<PyAny>) -> PyResult<bool> { 
+        Ok(depythonize::<Value>(obj).map_err(|e| PyValueError::new_err(e.to_string()))?.is_boolean()) 
     }
 
-    /// Check if JSON value is a number
-    fn is_number(&self, obj: &Bound<'_, PyAny>) -> PyResult<bool> {
-        let val: Value = depythonize(obj)
-            .map_err(|e| pyo3::exceptions::PyValueError::new_err(e.to_string()))?;
-        Ok(val.is_number())
+    #[inline(always)]
+    fn is_number(&self, obj: &Bound<PyAny>) -> PyResult<bool> { 
+        Ok(depythonize::<Value>(obj).map_err(|e| PyValueError::new_err(e.to_string()))?.is_number()) 
     }
 
-    /// Check if JSON value is a string
-    fn is_string(&self, obj: &Bound<'_, PyAny>) -> PyResult<bool> {
-        let val: Value = depythonize(obj)
-            .map_err(|e| pyo3::exceptions::PyValueError::new_err(e.to_string()))?;
-        Ok(val.is_string())
+    #[inline(always)]
+    fn is_string(&self, obj: &Bound<PyAny>) -> PyResult<bool> { 
+        Ok(depythonize::<Value>(obj).map_err(|e| PyValueError::new_err(e.to_string()))?.is_string()) 
     }
 
-    /// Check if JSON value is an array
-    fn is_array(&self, obj: &Bound<'_, PyAny>) -> PyResult<bool> {
-        let val: Value = depythonize(obj)
-            .map_err(|e| pyo3::exceptions::PyValueError::new_err(e.to_string()))?;
-        Ok(val.is_array())
+    #[inline(always)]
+    fn is_array(&self, obj: &Bound<PyAny>) -> PyResult<bool> { 
+        Ok(depythonize::<Value>(obj).map_err(|e| PyValueError::new_err(e.to_string()))?.is_array()) 
     }
 
-    /// Check if JSON value is an object
-    fn is_object(&self, obj: &Bound<'_, PyAny>) -> PyResult<bool> {
-        let val: Value = depythonize(obj)
-            .map_err(|e| pyo3::exceptions::PyValueError::new_err(e.to_string()))?;
-        Ok(val.is_object())
+    #[inline(always)]
+    fn is_object(&self, obj: &Bound<PyAny>) -> PyResult<bool> { 
+        Ok(depythonize::<Value>(obj).map_err(|e| PyValueError::new_err(e.to_string()))?.is_object()) 
     }
 
-    /// Check if JSON value is an integer (i64)
-    fn is_i64(&self, obj: &Bound<'_, PyAny>) -> PyResult<bool> {
-        let val: Value = depythonize(obj)
-            .map_err(|e| pyo3::exceptions::PyValueError::new_err(e.to_string()))?;
-        Ok(val.is_i64())
+    #[inline(always)]
+    fn is_i64(&self, obj: &Bound<PyAny>) -> PyResult<bool> { 
+        Ok(depythonize::<Value>(obj).map_err(|e| PyValueError::new_err(e.to_string()))?.is_i64()) 
     }
 
-    /// Check if JSON value is an unsigned integer (u64)
-    fn is_u64(&self, obj: &Bound<'_, PyAny>) -> PyResult<bool> {
-        let val: Value = depythonize(obj)
-            .map_err(|e| pyo3::exceptions::PyValueError::new_err(e.to_string()))?;
-        Ok(val.is_u64())
+    #[inline(always)]
+    fn is_u64(&self, obj: &Bound<PyAny>) -> PyResult<bool> { 
+        Ok(depythonize::<Value>(obj).map_err(|e| PyValueError::new_err(e.to_string()))?.is_u64()) 
     }
 
-    /// Check if JSON value is a floating point number (f64)
-    fn is_f64(&self, obj: &Bound<'_, PyAny>) -> PyResult<bool> {
-        let val: Value = depythonize(obj)
-            .map_err(|e| pyo3::exceptions::PyValueError::new_err(e.to_string()))?;
-        Ok(val.is_f64())
+    #[inline(always)]
+    fn is_f64(&self, obj: &Bound<PyAny>) -> PyResult<bool> { 
+        Ok(depythonize::<Value>(obj).map_err(|e| PyValueError::new_err(e.to_string()))?.is_f64()) 
     }
 
-    // ==================== Value Extraction ====================
-    
-    /// Extract value as boolean
-    fn as_bool(&self, obj: &Bound<'_, PyAny>) -> PyResult<Option<bool>> {
-        let val: Value = depythonize(obj)
-            .map_err(|e| pyo3::exceptions::PyValueError::new_err(e.to_string()))?;
-        Ok(val.as_bool())
+    #[inline(always)]
+    fn as_bool(&self, obj: &Bound<PyAny>) -> PyResult<Option<bool>> { 
+        Ok(depythonize::<Value>(obj).map_err(|e| PyValueError::new_err(e.to_string()))?.as_bool()) 
     }
 
-    /// Extract value as i64
-    fn as_i64(&self, obj: &Bound<'_, PyAny>) -> PyResult<Option<i64>> {
-        let val: Value = depythonize(obj)
-            .map_err(|e| pyo3::exceptions::PyValueError::new_err(e.to_string()))?;
-        Ok(val.as_i64())
+    #[inline(always)]
+    fn as_i64(&self, obj: &Bound<PyAny>) -> PyResult<Option<i64>> { 
+        Ok(depythonize::<Value>(obj).map_err(|e| PyValueError::new_err(e.to_string()))?.as_i64()) 
     }
 
-    /// Extract value as u64
-    fn as_u64(&self, obj: &Bound<'_, PyAny>) -> PyResult<Option<u64>> {
-        let val: Value = depythonize(obj)
-            .map_err(|e| pyo3::exceptions::PyValueError::new_err(e.to_string()))?;
-        Ok(val.as_u64())
+    #[inline(always)]
+    fn as_u64(&self, obj: &Bound<PyAny>) -> PyResult<Option<u64>> { 
+        Ok(depythonize::<Value>(obj).map_err(|e| PyValueError::new_err(e.to_string()))?.as_u64()) 
     }
 
-    /// Extract value as f64
-    fn as_f64(&self, obj: &Bound<'_, PyAny>) -> PyResult<Option<f64>> {
-        let val: Value = depythonize(obj)
-            .map_err(|e| pyo3::exceptions::PyValueError::new_err(e.to_string()))?;
-        Ok(val.as_f64())
+    #[inline(always)]
+    fn as_f64(&self, obj: &Bound<PyAny>) -> PyResult<Option<f64>> { 
+        Ok(depythonize::<Value>(obj).map_err(|e| PyValueError::new_err(e.to_string()))?.as_f64()) 
     }
 
-    /// Extract value as string
-    fn as_str(&self, obj: &Bound<'_, PyAny>) -> PyResult<Option<String>> {
-        let val: Value = depythonize(obj)
-            .map_err(|e| pyo3::exceptions::PyValueError::new_err(e.to_string()))?;
-        Ok(val.as_str().map(|s| s.to_string()))
+    #[inline(always)]
+    fn as_str(&self, obj: &Bound<PyAny>) -> PyResult<Option<String>> { 
+        Ok(depythonize::<Value>(obj).map_err(|e| PyValueError::new_err(e.to_string()))?.as_str().map(|s| s.to_string())) 
     }
 
-    // ==================== Advanced Operations ====================
-    
-    /// Deep merge two JSON objects
-    fn merge(&self, py: Python, a: &Bound<'_, PyAny>, b: &Bound<'_, PyAny>) -> PyResult<Py<PyAny>> {
-        let mut va: Value = depythonize(a)
-            .map_err(|e| pyo3::exceptions::PyValueError::new_err(e.to_string()))?;
-        let vb: Value = depythonize(b)
-            .map_err(|e| pyo3::exceptions::PyValueError::new_err(e.to_string()))?;
-
+    #[inline(always)]
+    fn merge<'py>(&self, py: Python<'py>, a: &Bound<'py, PyAny>, b: &Bound<'py, PyAny>) -> PyResult<Bound<'py, PyAny>> {
         fn merge_values(a: &mut Value, b: &Value) {
             match (a, b) {
-                (Value::Object(map_a), Value::Object(map_b)) => {
-                    for (k, v) in map_b {
-                        match map_a.get_mut(k) {
-                            Some(existing) => merge_values(existing, v),
-                            None => { map_a.insert(k.clone(), v.clone()); }
-                        }
+                (Value::Object(a_map), Value::Object(b_map)) => {
+                    for (k, v) in b_map {
+                        a_map.entry(k.clone())
+                            .and_modify(|x| merge_values(x, v))
+                            .or_insert_with(|| v.clone());
                     }
-                }
+                },
                 (a_slot, b_val) => *a_slot = b_val.clone(),
             }
         }
-
+        let mut va = depythonize::<Value>(a).map_err(|e| PyValueError::new_err(e.to_string()))?;
+        let vb = depythonize::<Value>(b).map_err(|e| PyValueError::new_err(e.to_string()))?;
         merge_values(&mut va, &vb);
-        pythonize(py, &va)
-            .map(|bound| bound.unbind())
-            .map_err(|e| pyo3::exceptions::PyValueError::new_err(format!("Pythonize error: {}", e)))
+        pythonize(py, &va).map_err(|e| PyValueError::new_err(e.to_string()))
     }
 
-    /// Get value at path (list of keys/indices)
-    fn get_path(&self, py: Python, obj: &Bound<'_, PyAny>, path: Vec<String>) -> PyResult<Py<PyAny>> {
-        let mut val: Value = depythonize(obj)
-            .map_err(|e| pyo3::exceptions::PyValueError::new_err(e.to_string()))?;
-        
-        for key in &path {
-            val = match &val {
-                Value::Object(map) => map.get(key).cloned().unwrap_or(Value::Null),
-                Value::Array(arr) => {
-                    if let Ok(idx) = key.parse::<usize>() {
-                        arr.get(idx).cloned().unwrap_or(Value::Null)
-                    } else {
-                        Value::Null
-                    }
-                }
+    #[inline(always)]
+    fn get_path<'py>(&self, py: Python<'py>, obj: &Bound<'py, PyAny>, path: Vec<String>) -> PyResult<Bound<'py, PyAny>> {
+        let mut val = depythonize::<Value>(obj).map_err(|e| PyValueError::new_err(e.to_string()))?;
+        for key in path {
+            val = match val {
+                Value::Object(map) => map.get(&key).cloned().unwrap_or(Value::Null),
+                Value::Array(arr) => key.parse::<usize>().ok().and_then(|i| arr.get(i).cloned()).unwrap_or(Value::Null),
                 _ => Value::Null,
-            };
+            }
         }
-        
-        pythonize(py, &val)
-            .map(|bound| bound.unbind())
-            .map_err(|e| pyo3::exceptions::PyValueError::new_err(format!("Pythonize error: {}", e)))
+        pythonize(py, &val).map_err(|e| PyValueError::new_err(e.to_string()))
     }
 
-    /// Access nested value using JSON Pointer (RFC 6901)
-    fn pointer(&self, py: Python, obj: &Bound<'_, PyAny>, pointer: &str) -> PyResult<Py<PyAny>> {
-        let val: Value = depythonize(obj)
-            .map_err(|e| pyo3::exceptions::PyValueError::new_err(e.to_string()))?;
-        
+    #[inline(always)]
+    fn pointer<'py>(&self, py: Python<'py>, obj: &Bound<'py, PyAny>, pointer: &str) -> PyResult<Bound<'py, PyAny>> {
+        let val = depythonize::<Value>(obj).map_err(|e| PyValueError::new_err(e.to_string()))?;
         match val.pointer(pointer) {
-            Some(result) => pythonize(py, result)
-                .map(|bound| bound.unbind())
-                .map_err(|e| pyo3::exceptions::PyValueError::new_err(format!("Pythonize error: {}", e))),
-            None => Ok(py.None()),
+            Some(res) => pythonize(py, res).map_err(|e| PyValueError::new_err(e.to_string())),
+            None => Ok(py.None().into_bound(py))
         }
     }
 
-    /// Flatten nested JSON object with dot notation keys
-    fn flatten(&self, py: Python, obj: &Bound<'_, PyAny>) -> PyResult<Py<PyDict>> {
-        let val: Value = depythonize(obj)
-            .map_err(|e| pyo3::exceptions::PyValueError::new_err(e.to_string()))?;
-        
-        let dict = PyDict::new_bound(py);
-        
-        fn flatten_rec(prefix: String, val: &Value, dict: &Bound<'_, PyDict>, py: Python) -> PyResult<()> {
+    #[inline(always)]
+    fn flatten<'py>(&self, py: Python<'py>, obj: &Bound<'py, PyAny>) -> PyResult<Bound<'py, PyDict>> {
+        let val = depythonize::<Value>(obj).map_err(|e| PyValueError::new_err(e.to_string()))?;
+        let dict = PyDict::new(py);
+
+        fn rec<'py>(val: &Value, prefix: &str, dict: &Bound<'py, PyDict>, py: Python<'py>) -> PyResult<()> {
             match val {
                 Value::Object(map) => {
                     for (k, v) in map {
-                        let new_key = if prefix.is_empty() {
-                            k.clone()
-                        } else {
-                            format!("{}.{}", prefix, k)
-                        };
-                        flatten_rec(new_key, v, dict, py)?;
+                        let new_prefix = if prefix.is_empty() { k.clone() } else { format!("{}.{}", prefix, k) };
+                        rec(v, &new_prefix, dict, py)?;
                     }
-                }
+                },
                 Value::Array(arr) => {
                     for (i, v) in arr.iter().enumerate() {
-                        let new_key = format!("{}[{}]", prefix, i);
-                        flatten_rec(new_key, v, dict, py)?;
+                        rec(v, &format!("{}[{}]", prefix, i), dict, py)?;
                     }
-                }
-                other => {
-                    let py_val = pythonize(py, other)
-                        .map_err(|e| pyo3::exceptions::PyValueError::new_err(e.to_string()))?;
-                    dict.set_item(prefix, py_val)?;
-                }
+                },
+                _ => dict.set_item(prefix, pythonize(py, val).map_err(|e| PyValueError::new_err(e.to_string()))?)?,
             }
             Ok(())
         }
-        
-        flatten_rec(String::new(), &val, &dict, py)?;
-        Ok(dict.unbind())
+
+        rec(&val, "", &dict, py)?;
+        Ok(dict)
     }
 
-    /// Get all keys from JSON object (recursive)
+    #[inline(always)]
     #[pyo3(signature = (obj, recursive=None))]
-    fn keys(&self, py: Python, obj: &Bound<'_, PyAny>, recursive: Option<bool>) -> PyResult<Py<PyList>> {
-        let val: Value = depythonize(obj)
-            .map_err(|e| pyo3::exceptions::PyValueError::new_err(e.to_string()))?;
-        
-        let recursive = recursive.unwrap_or(false);
-        let list = PyList::empty_bound(py);
-        
-        fn collect_keys(val: &Value, list: &Bound<'_, PyList>, recursive: bool, py: Python) -> PyResult<()> {
+    fn keys<'py>(&self, py: Python<'py>, obj: &Bound<'py, PyAny>, recursive: Option<bool>) -> PyResult<Bound<'py, PyList>> {
+        let val = depythonize::<Value>(obj).map_err(|e| PyValueError::new_err(e.to_string()))?;
+        let list = PyList::empty(py);
+
+        fn collect<'py>(val: &Value, list: &Bound<'py, PyList>, recursive: bool, py: Python<'py>) -> PyResult<()> {
             if let Value::Object(map) = val {
-                for key in map.keys() {
-                    list.append(key)?;
-                    if recursive {
-                        if let Some(nested) = map.get(key) {
-                            collect_keys(nested, list, recursive, py)?;
-                        }
-                    }
+                for k in map.keys() {
+                    list.append(k)?;
+                    if recursive { collect(&map[k], list, true, py)?; }
                 }
             }
             Ok(())
         }
-        
-        collect_keys(&val, &list, recursive, py)?;
-        Ok(list.unbind())
+
+        collect(&val, &list, recursive.unwrap_or(false), py)?;
+        Ok(list)
     }
 
-    /// Get all values from JSON object/array (recursive)
+    #[inline(always)]
     #[pyo3(signature = (obj, recursive=None))]
-    fn values(&self, py: Python, obj: &Bound<'_, PyAny>, recursive: Option<bool>) -> PyResult<Py<PyList>> {
-        let val: Value = depythonize(obj)
-            .map_err(|e| pyo3::exceptions::PyValueError::new_err(e.to_string()))?;
-        
-        let recursive = recursive.unwrap_or(false);
-        let list = PyList::empty_bound(py);
-        
-        fn collect_values(val: &Value, list: &Bound<'_, PyList>, recursive: bool, py: Python) -> PyResult<()> {
+    fn values<'py>(&self, py: Python<'py>, obj: &Bound<'py, PyAny>, recursive: Option<bool>) -> PyResult<Bound<'py, PyList>> {
+        let val = depythonize::<Value>(obj).map_err(|e| PyValueError::new_err(e.to_string()))?;
+        let list = PyList::empty(py);
+
+        fn collect<'py>(val: &Value, list: &Bound<'py, PyList>, recursive: bool, py: Python<'py>) -> PyResult<()> {
             match val {
                 Value::Object(map) => {
                     for v in map.values() {
-                        let py_val = pythonize(py, v)
-                            .map_err(|e| pyo3::exceptions::PyValueError::new_err(e.to_string()))?;
-                        list.append(py_val)?;
-                        if recursive {
-                            collect_values(v, list, recursive, py)?;
-                        }
+                        list.append(pythonize(py, v)?)?;
+                        if recursive { collect(v, list, true, py)?; }
                     }
                 }
                 Value::Array(arr) => {
                     for v in arr {
-                        let py_val = pythonize(py, v)
-                            .map_err(|e| pyo3::exceptions::PyValueError::new_err(e.to_string()))?;
-                        list.append(py_val)?;
-                        if recursive {
-                            collect_values(v, list, recursive, py)?;
-                        }
+                        list.append(pythonize(py, v)?)?;
+                        if recursive { collect(v, list, true, py)?; }
                     }
                 }
                 _ => {}
             }
             Ok(())
         }
-        
-        collect_values(&val, &list, recursive, py)?;
-        Ok(list.unbind())
+
+        collect(&val, &list, recursive.unwrap_or(false), py)?;
+        Ok(list)
     }
 
-    /// Count total number of values in nested structure
-    fn count_values(&self, obj: &Bound<'_, PyAny>) -> PyResult<usize> {
-        let val: Value = depythonize(obj)
-            .map_err(|e| pyo3::exceptions::PyValueError::new_err(e.to_string()))?;
-        
-        fn count_rec(val: &Value) -> usize {
+    #[inline(always)]
+    fn count_values(&self, obj: &Bound<PyAny>) -> PyResult<usize> {
+        fn rec(val: &Value) -> usize {
             match val {
-                Value::Object(map) => 1 + map.values().map(count_rec).sum::<usize>(),
-                Value::Array(arr) => 1 + arr.iter().map(count_rec).sum::<usize>(),
-                _ => 1,
+                Value::Object(m) => 1 + m.values().map(rec).sum::<usize>(),
+                Value::Array(a) => 1 + a.iter().map(rec).sum::<usize>(),
+                _ => 1
             }
         }
-        
-        Ok(count_rec(&val))
+        Ok(rec(&depythonize::<Value>(obj).map_err(|e| PyValueError::new_err(e.to_string()))?))
     }
 
-    /// Find all paths to a specific value
-    fn find_paths(&self, py: Python, obj: &Bound<'_, PyAny>, target: &Bound<'_, PyAny>) -> PyResult<Py<PyList>> {
-        let val: Value = depythonize(obj)
-            .map_err(|e| pyo3::exceptions::PyValueError::new_err(e.to_string()))?;
-        let target_val: Value = depythonize(target)
-            .map_err(|e| pyo3::exceptions::PyValueError::new_err(e.to_string()))?;
-        
-        let list = PyList::empty_bound(py);
-        
-        fn find_rec(current: &Value, target: &Value, path: Vec<String>, results: &Bound<'_, PyList>, py: Python) -> PyResult<()> {
-            if current == target {
-                let path_list = PyList::empty_bound(py);
-                for p in &path {
-                    path_list.append(p)?;
-                }
-                results.append(path_list)?;
+    #[inline(always)]
+    fn find_paths<'py>(&self, py: Python<'py>, obj: &Bound<'py, PyAny>, target: &Bound<'py, PyAny>) -> PyResult<Bound<'py, PyList>> {
+        let val = depythonize::<Value>(obj).map_err(|e| PyValueError::new_err(e.to_string()))?;
+        let target_val = depythonize::<Value>(target).map_err(|e| PyValueError::new_err(e.to_string()))?;
+        let paths = PyList::empty(py);
+
+        fn rec<'py>(val: &Value, target: &Value, current: &mut Vec<String>, results: &Bound<'py, PyList>, py: Python<'py>) -> PyResult<()> {
+            if val == target {
+                results.append(current.clone())?;
             }
-            
-            match current {
+            match val {
                 Value::Object(map) => {
                     for (k, v) in map {
-                        let mut new_path = path.clone();
-                        new_path.push(k.clone());
-                        find_rec(v, target, new_path, results, py)?;
+                        current.push(k.clone());
+                        rec(v, target, current, results, py)?;
+                        current.pop();
                     }
-                }
+                },
                 Value::Array(arr) => {
                     for (i, v) in arr.iter().enumerate() {
-                        let mut new_path = path.clone();
-                        new_path.push(i.to_string());
-                        find_rec(v, target, new_path, results, py)?;
+                        current.push(i.to_string());
+                        rec(v, target, current, results, py)?;
+                        current.pop();
                     }
-                }
+                },
                 _ => {}
             }
             Ok(())
         }
-        
-        find_rec(&val, &target_val, Vec::new(), &list, py)?;
-        Ok(list.unbind())
+
+        rec(&val, &target_val, &mut Vec::new(), &paths, py)?;
+        Ok(paths)
     }
 
-    /// Remove null values recursively
-    fn remove_nulls(&self, py: Python, obj: &Bound<'_, PyAny>) -> PyResult<Py<PyAny>> {
-        let val: Value = depythonize(obj)
-            .map_err(|e| pyo3::exceptions::PyValueError::new_err(e.to_string()))?;
-        
-        fn remove_nulls_rec(val: Value) -> Value {
+    #[inline(always)]
+    fn remove_nulls<'py>(&self, py: Python<'py>, obj: &Bound<'py, PyAny>) -> PyResult<Bound<'py, PyAny>> {
+        fn rec(val: Value) -> Value {
             match val {
-                Value::Object(map) => {
-                    let filtered: Map<String, Value> = map
-                        .into_iter()
-                        .filter(|(_, v)| !v.is_null())
-                        .map(|(k, v)| (k, remove_nulls_rec(v)))
-                        .collect();
-                    Value::Object(filtered)
-                }
-                Value::Array(arr) => {
-                    let filtered: Vec<Value> = arr
-                        .into_iter()
-                        .filter(|v| !v.is_null())
-                        .map(remove_nulls_rec)
-                        .collect();
-                    Value::Array(filtered)
-                }
-                other => other,
+                Value::Object(m) => Value::Object(m.into_iter()
+                    .filter(|(_, v)| !v.is_null())
+                    .map(|(k, v)| (k, rec(v)))
+                    .collect()),
+                Value::Array(a) => Value::Array(a.into_iter()
+                    .filter(|v| !v.is_null())
+                    .map(rec)
+                    .collect()),
+                o => o
             }
         }
-        
-        let cleaned = remove_nulls_rec(val);
-        pythonize(py, &cleaned)
-            .map(|bound| bound.unbind())
-            .map_err(|e| pyo3::exceptions::PyValueError::new_err(format!("Pythonize error: {}", e)))
+        let val = depythonize::<Value>(obj).map_err(|e| PyValueError::new_err(e.to_string()))?;
+        pythonize(py, &rec(val)).map_err(|e| PyValueError::new_err(e.to_string()))
     }
 
-    /// Sort all object keys alphabetically (recursive)
-    fn sort_keys(&self, py: Python, obj: &Bound<'_, PyAny>) -> PyResult<Py<PyAny>> {
-        let mut val: Value = depythonize(obj)
-            .map_err(|e| pyo3::exceptions::PyValueError::new_err(e.to_string()))?;
-        
-        fn sort_rec(val: &mut Value) {
+    #[inline(always)]
+    fn sort_keys<'py>(&self, py: Python<'py>, obj: &Bound<'py, PyAny>) -> PyResult<Bound<'py, PyAny>> {
+        fn rec(val: &mut Value) {
             match val {
-                Value::Object(map) => {
-                    let mut entries: Vec<_> = map.iter_mut().collect();
+                Value::Object(m) => {
+                    let mut entries: Vec<_> = m.iter_mut().collect();
                     entries.sort_by(|a, b| a.0.cmp(b.0));
-                    for (_, v) in entries {
-                        sort_rec(v);
-                    }
-                }
-                Value::Array(arr) => {
-                    for v in arr {
-                        sort_rec(v);
-                    }
-                }
+                    for (_, v) in entries { rec(v); }
+                },
+                Value::Array(a) => { for v in a { rec(v); } },
                 _ => {}
             }
         }
-        
-        sort_rec(&mut val);
-        pythonize(py, &val)
-            .map(|bound| bound.unbind())
-            .map_err(|e| pyo3::exceptions::PyValueError::new_err(format!("Pythonize error: {}", e)))
+        let mut val = depythonize::<Value>(obj).map_err(|e| PyValueError::new_err(e.to_string()))?;
+        rec(&mut val);
+        pythonize(py, &val).map_err(|e| PyValueError::new_err(e.to_string()))
     }
 
-    /// Get depth of nested structure
-    fn depth(&self, obj: &Bound<'_, PyAny>) -> PyResult<usize> {
-        let val: Value = depythonize(obj)
-            .map_err(|e| pyo3::exceptions::PyValueError::new_err(e.to_string()))?;
-        
-        fn depth_rec(val: &Value) -> usize {
+    #[inline(always)]
+    fn depth(&self, obj: &Bound<PyAny>) -> PyResult<usize> {
+        fn rec(val: &Value) -> usize {
             match val {
-                Value::Object(map) => {
-                    1 + map.values().map(depth_rec).max().unwrap_or(0)
-                }
-                Value::Array(arr) => {
-                    1 + arr.iter().map(depth_rec).max().unwrap_or(0)
-                }
-                _ => 0,
+                Value::Object(m) => 1 + m.values().map(rec).max().unwrap_or(0),
+                Value::Array(a) => 1 + a.iter().map(rec).max().unwrap_or(0),
+                _ => 0
             }
         }
-        
-        Ok(depth_rec(&val))
+        Ok(rec(&depythonize::<Value>(obj).map_err(|e| PyValueError::new_err(e.to_string()))?))
     }
 
-    /// Validate JSON string without parsing to Python
-    fn validate(&self, json_str: &str) -> PyResult<bool> {
-        match serde_json::from_str::<Value>(json_str) {
-            Ok(_) => Ok(true),
-            Err(_) => Ok(false),
-        }
-    }
+    #[inline(always)]
+    fn validate(&self, json_str: &str) -> PyResult<bool> { Ok(serde_json::from_str::<Value>(json_str).is_ok()) }
 
-    /// Minify JSON string (remove whitespace)
+    #[inline(always)]
     fn minify(&self, json_str: &str) -> PyResult<String> {
-        let val: Value = serde_json::from_str(json_str)
-            .map_err(|e| pyo3::exceptions::PyValueError::new_err(format!("Invalid JSON: {}", e)))?;
-        serde_json::to_string(&val)
-            .map_err(|e| pyo3::exceptions::PyValueError::new_err(format!("JSON error: {}", e)))
+        let val = serde_json::from_str::<Value>(json_str).map_err(|e| PyValueError::new_err(e.to_string()))?;
+        serde_json::to_string(&val).map_err(|e| PyValueError::new_err(e.to_string()))
     }
 
-    /// Compare two JSON objects for structural equality
-    fn equals(&self, a: &Bound<'_, PyAny>, b: &Bound<'_, PyAny>) -> PyResult<bool> {
-        let va: Value = depythonize(a)
-            .map_err(|e| pyo3::exceptions::PyValueError::new_err(e.to_string()))?;
-        let vb: Value = depythonize(b)
-            .map_err(|e| pyo3::exceptions::PyValueError::new_err(e.to_string()))?;
+    #[inline(always)]
+    fn equals(&self, a: &Bound<PyAny>, b: &Bound<PyAny>) -> PyResult<bool> {
+        let va = depythonize::<Value>(a).map_err(|e| PyValueError::new_err(e.to_string()))?;
+        let vb = depythonize::<Value>(b).map_err(|e| PyValueError::new_err(e.to_string()))?;
         Ok(va == vb)
     }
 
-    /// Get size in bytes of JSON representation
-    fn size(&self, obj: &Bound<'_, PyAny>) -> PyResult<usize> {
-        let val: Value = depythonize(obj)
-            .map_err(|e| pyo3::exceptions::PyValueError::new_err(e.to_string()))?;
-        let bytes = serde_json::to_vec(&val)
-            .map_err(|e| pyo3::exceptions::PyValueError::new_err(format!("JSON error: {}", e)))?;
-        Ok(bytes.len())
+    #[inline(always)]
+    fn size(&self, obj: &Bound<PyAny>) -> PyResult<usize> {
+        let val = depythonize::<Value>(obj).map_err(|e| PyValueError::new_err(e.to_string()))?;
+        serde_json::to_vec(&val).map(|v| v.len()).map_err(|e| PyValueError::new_err(e.to_string()))
     }
 }
 

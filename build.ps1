@@ -14,6 +14,9 @@ Get-ChildItem -Path "target\wheels\*.whl" | ForEach-Object {
     Copy-Item -Path $_.FullName -Destination "dist\" -Force
 }
 
+# Uninstall existing version
+pip uninstall serdejsonpy -y
+
 # Install the wheel
 $wheel = Get-ChildItem -Path "dist\*.whl" | Select-Object -First 1
 pip install $wheel.FullName
